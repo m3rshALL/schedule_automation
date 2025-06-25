@@ -4,6 +4,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from celery.result import AsyncResult
 from .tasks import optimize_schedule_task
+import openpyxl
+from openpyxl.utils import get_column_letter
+from django.http import HttpResponse
+from .models import Schedule
+from rest_framework import permissions
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 # Create your views here.
 
@@ -29,3 +37,80 @@ class OptimizeScheduleStatusView(APIView):
             "status": result.status,
             "result": result.result if result.successful() else None
         })
+
+class ScheduleExportView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        export_format = request.query_params.get('format', 'excel')
+        schedules = Schedule.objects.select_related(
+            'course', 'teacher', 'room', 'timeslot', 'course__subject', 'course__student_group'
+        ).all().order_by('timeslot__day', 'timeslot__start_time')
+        if export_format == 'pdf':
+            return self.export_pdf(schedules)
+        return self.export_excel(schedules)
+
+    def export_excel(self, schedules):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Schedule'
+        headers = [
+            'Группа', 'Дисциплина', 'Преподаватель', 'Аудитория', 'День', 'Время', 'Тип занятия'
+        ]
+        ws.append(headers)
+        for s in schedules:
+            ws.append([
+                s.course.student_group.name,
+                s.course.subject.name,
+                s.teacher.name,
+                s.room.name,
+                s.timeslot.day,
+                f"{s.timeslot.start_time:%H:%M}-{s.timeslot.end_time:%H:%M}",
+                s.course.lesson_type,
+            ])
+        for col in range(1, len(headers) + 1):
+            ws.column_dimensions[get_column_letter(col)].width = 18
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=schedule.xlsx'
+        return response
+
+    def export_pdf(self, schedules):
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        y = height - 40
+        p.setFont('Helvetica-Bold', 14)
+        p.drawString(40, y, 'Расписание занятий')
+        y -= 30
+        p.setFont('Helvetica', 10)
+        headers = ['Группа', 'Дисциплина', 'Преподаватель', 'Аудитория', 'День', 'Время', 'Тип']
+        for i, h in enumerate(headers):
+            p.drawString(40 + i*80, y, h)
+        y -= 20
+        for s in schedules:
+            row = [
+                s.course.student_group.name,
+                s.course.subject.name,
+                s.teacher.name,
+                s.room.name,
+                s.timeslot.day,
+                f"{s.timeslot.start_time:%H:%M}-{s.timeslot.end_time:%H:%M}",
+                s.course.lesson_type,
+            ]
+            for i, val in enumerate(row):
+                p.drawString(40 + i*80, y, str(val))
+            y -= 18
+            if y < 60:
+                p.showPage()
+                y = height - 40
+        p.save()
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename=schedule.pdf'
+        return response
