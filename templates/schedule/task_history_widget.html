@@ -1,0 +1,30 @@
+<table class="min-w-full bg-white border rounded text-sm">
+  <thead>
+    <tr>
+      <th class="px-2 py-1 border-b">Тип</th>
+      <th class="px-2 py-1 border-b">Статус</th>
+      <th class="px-2 py-1 border-b">Дата</th>
+      <th class="px-2 py-1 border-b">Результат</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for task in tasks %}
+      <tr>
+        <td class="px-2 py-1 border-b">{{ task.type }}</td>
+        <td class="px-2 py-1 border-b">{{ task.status }}</td>
+        <td class="px-2 py-1 border-b">{{ task.created_at|date:'d.m.Y H:i' }}</td>
+        <td class="px-2 py-1 border-b">
+          {% if task.result_url %}
+            <a href="{{ task.result_url }}" class="text-blue-600 hover:underline" target="_blank">Скачать</a>
+          {% elif task.result_data %}
+            <span>{{ task.result_data }}</span>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="text-center py-2">Нет задач</td></tr>
+    {% endfor %}
+  </tbody>
+</table> 

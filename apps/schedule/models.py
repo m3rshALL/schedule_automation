@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 
 class TimeSlot(models.Model):
@@ -38,3 +39,31 @@ class Schedule(models.Model):
 
     def __str__(self):
         return f"{self.course} in {self.room} at {self.timeslot}"
+
+
+class TaskHistory(models.Model):
+    TASK_TYPE_CHOICES = [
+        ("import", "Импорт"),
+        ("export", "Экспорт"),
+    ]
+    STATUS_CHOICES = [
+        ("PENDING", "В очереди"),
+        ("STARTED", "Выполняется"),
+        ("SUCCESS", "Завершено"),
+        ("FAILURE", "Ошибка"),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="schedule_tasks")
+    task_id = models.CharField(max_length=64, unique=True)
+    type = models.CharField(max_length=16, choices=TASK_TYPE_CHOICES)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    result_url = models.CharField(max_length=255, blank=True, null=True)
+    result_data = models.JSONField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Задача импорта/экспорта расписания"
+        verbose_name_plural = "История задач импорта/экспорта"
+
+    def __str__(self):
+        return f"{self.get_type_display()} {self.task_id} ({self.status})"

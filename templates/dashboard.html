@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mx-auto py-8">
+  <h1 class="text-2xl font-bold mb-6">Панель управления</h1>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white p-6 rounded shadow text-center">
+      <div class="text-3xl font-bold">{{ stats.groups }}</div>
+      <div class="text-gray-600">Групп</div>
+    </div>
+    <div class="bg-white p-6 rounded shadow text-center">
+      <div class="text-3xl font-bold">{{ stats.teachers }}</div>
+      <div class="text-gray-600">Преподавателей</div>
+    </div>
+    <div class="bg-white p-6 rounded shadow text-center">
+      <div class="text-3xl font-bold">{{ stats.rooms }}</div>
+      <div class="text-gray-600">Аудиторий</div>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-4 mb-8">
+    <a href="{% url 'schedule_view' %}" class="px-6 py-3 bg-blue-600 text-white rounded">Просмотр расписания</a>
+    <a href="{% url 'schedule_import_export' %}" class="px-6 py-3 bg-green-600 text-white rounded">Импорт/Экспорт</a>
+    <a href="{% url 'data_management_list' %}?entity=group" class="px-6 py-3 bg-yellow-500 text-white rounded">Управление данными</a>
+  </div>
+  <div class="bg-white p-6 rounded shadow">
+    <h2 class="text-xl font-bold mb-4">Последние задачи</h2>
+    <div id="task-history-widget">
+      {% include 'schedule/task_history_widget.html' %}
+    </div>
+  </div>
+</div>
+{% endblock %} 

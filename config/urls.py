@@ -46,4 +46,5 @@ urlpatterns = [
     path("api/faculty/", include("apps.faculty.urls")),
     path("api/schedule/", include("apps.schedule.urls")),
     path('api/data-import/', include('apps.data_import.urls')),
+    path("__reload__/", include("django_browser_reload.urls")),
 ]

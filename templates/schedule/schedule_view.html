@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mx-auto py-8">
+  <h1 class="text-2xl font-bold mb-4">Расписание</h1>
+  <form id="filters" class="flex flex-wrap gap-4 mb-6">
+    <select name="group" class="px-3 py-2 border rounded" id="group-filter">
+      <option value="">Группа</option>
+      {% for group in groups %}
+        <option value="{{ group.id }}">{{ group.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="teacher" class="px-3 py-2 border rounded" id="teacher-filter">
+      <option value="">Преподаватель</option>
+      {% for teacher in teachers %}
+        <option value="{{ teacher.id }}">{{ teacher.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="room" class="px-3 py-2 border rounded" id="room-filter">
+      <option value="">Аудитория</option>
+      {% for room in rooms %}
+        <option value="{{ room.id }}">{{ room.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Применить</button>
+    <button type="button" class="px-4 py-2 bg-green-600 text-white rounded ml-auto" id="export-btn">Экспортировать</button>
+    <div class="ml-4 flex items-center gap-2">
+      <label for="view-mode" class="font-medium">Вид:</label>
+      <select id="view-mode" class="px-2 py-1 border rounded">
+        <option value="week">Неделя</option>
+        <option value="day">День</option>
+      </select>
+    </div>
+  </form>
+  <div id="schedule-table">
+    <!-- Здесь будет сетка расписания -->
+    {% include 'schedule/schedule_grid.html' %}
+  </div>
+</div>
+<script>
+// JS для динамического обновления расписания и экспорта
+</script>
+{% endblock %} 

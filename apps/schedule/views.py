@@ -3,11 +3,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from celery.result import AsyncResult
-from .tasks import optimize_schedule_task
+from .tasks import optimize_schedule_task, import_schedule_task
 import openpyxl
 from openpyxl.utils import get_column_letter
 from django.http import HttpResponse
-from .models import Schedule
+from .models import Schedule, TimeSlot, TaskHistory
 from rest_framework import permissions
 import io
 from reportlab.lib.pagesizes import A4
@@ -16,6 +16,17 @@ from celery import shared_task
 import os
 from django.conf import settings
 import tempfile
+from rest_framework import viewsets, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from .serializers import TimeSlotSerializer, ScheduleSerializer
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.shortcuts import redirect
+from django.urls import reverse
+from django.contrib import messages
+from django.utils import timezone
+from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 
@@ -214,3 +225,76 @@ class ScheduleAsyncExportStatusView(APIView):
                 response['Content-Disposition'] = 'attachment; filename=schedule_async.xlsx'
                 return response
         return Response({'task_id': task_id, 'status': result.state}, status=status.HTTP_200_OK)
+
+class TimeSlotViewSet(viewsets.ModelViewSet):
+    queryset = TimeSlot.objects.all()
+    serializer_class = TimeSlotSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["day", "start_time", "end_time"]
+    search_fields = ["day"]
+    ordering_fields = ["day", "start_time", "end_time"]
+    permission_classes = [permissions.IsAdminUser]
+
+class ScheduleViewSet(viewsets.ModelViewSet):
+    queryset = Schedule.objects.select_related("course", "teacher", "room", "timeslot").all()
+    serializer_class = ScheduleSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["course", "teacher", "room", "timeslot"]
+    search_fields = ["course__subject__name", "teacher__name", "room__name"]
+    ordering_fields = ["timeslot", "teacher", "room"]
+    permission_classes = [permissions.IsAdminUser]
+
+class ScheduleImportExportView(View):
+    @method_decorator(login_required)
+    def get(self, request):
+        # История задач пользователя из базы
+        tasks = TaskHistory.objects.filter(user=request.user).order_by('-created_at')[:20]
+        return render(request, 'schedule_import_export.html', {'tasks': tasks})
+
+    @method_decorator(login_required)
+    def post(self, request):
+        if 'import_file' in request.FILES:
+            import_file = request.FILES['import_file']
+            tmp_dir = tempfile.gettempdir()
+            tmp_path = os.path.join(tmp_dir, f"import_{request.user.id}_{int(timezone.now().timestamp())}.xlsx")
+            with open(tmp_path, 'wb+') as f:
+                for chunk in import_file.chunks():
+                    f.write(chunk)
+            task = import_schedule_task.delay(tmp_path, user_id=request.user.id)
+            TaskHistory.objects.create(
+                user=request.user,
+                task_id=task.id,
+                type='import',
+                status='PENDING',
+            )
+            messages.success(request, 'Импорт запущен!')
+        elif request.POST.get('export') == '1' or request.GET.get('format'):
+            export_format = request.POST.get('format') or request.GET.get('format') or 'excel'
+            task = export_schedule_task.delay(user_id=request.user.id, export_format=export_format)
+            TaskHistory.objects.create(
+                user=request.user,
+                task_id=task.id,
+                type='export',
+                status='PENDING',
+            )
+            messages.success(request, 'Экспорт запущен!')
+        else:
+            messages.error(request, 'Неизвестное действие')
+        return redirect(reverse('schedule-import-export'))
+
+class TaskHistoryStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        tasks = TaskHistory.objects.filter(user=request.user).order_by('-created_at')[:20]
+        data = [
+            {
+                'task_id': t.task_id,
+                'type': t.get_type_display(),
+                'status': t.status,
+                'created_at': t.created_at.isoformat(),
+                'result_url': t.result_url,
+                'result_data': t.result_data,
+            }
+            for t in tasks
+        ]
+        return Response({'tasks': data})

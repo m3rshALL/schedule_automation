@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="flex items-center justify-center min-h-screen bg-gray-100">
+  <div class="w-full max-w-md p-8 space-y-6 bg-white rounded shadow">
+    <h2 class="text-xl font-bold text-center">Выход из системы</h2>
+    <p class="text-center">Вы уверены, что хотите выйти?</p>
+    <form method="post" class="flex flex-col items-center space-y-2">
+      {% csrf_token %}
+      <button type="submit" class="w-full py-2 font-semibold text-white bg-red-600 rounded hover:bg-red-700">Выйти</button>
+      <a href="/" class="text-blue-600 hover:underline">Отмена</a>
+    </form>
+  </div>
+</div>
+{% endblock %} 

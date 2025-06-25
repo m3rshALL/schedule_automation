@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Импорт/Экспорт расписания{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Импорт / Экспорт расписания</h1>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+    <!-- Импорт -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">Импорт данных</h2>
+        <form method="post" enctype="multipart/form-data" action="{% url 'schedule-import-export' %}">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="block mb-2 text-sm font-medium text-gray-700">Выберите файл для импорта (.xlsx)</label>
+                <input type="file" name="import_file" accept=".xlsx" required class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
+            </div>
+            <button type="submit" class="w-full text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Импортировать</button>
+        </form>
+    </div>
+    <!-- Экспорт -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">Экспорт данных</h2>
+        <form method="post" action="{% url 'schedule-import-export' %}">
+            {% csrf_token %}
+            <input type="hidden" name="export" value="1">
+            <div class="mb-4">
+                <label class="block mb-2 text-sm font-medium text-gray-700">Формат файла</label>
+                <select name="format" class="block w-full p-2 border border-gray-300 rounded-lg">
+                    <option value="excel">Excel (.xlsx)</option>
+                    <option value="pdf">PDF</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Скачать</button>
+        </form>
+    </div>
+</div>
+<!-- История задач -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h2 class="text-xl font-semibold mb-4">История задач</h2>
+    <div class="overflow-x-auto">
+        <table id="tasks-table" class="min-w-full text-sm text-left text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                <tr>
+                    <th class="px-4 py-2">ID задачи</th>
+                    <th class="px-4 py-2">Тип</th>
+                    <th class="px-4 py-2">Статус</th>
+                    <th class="px-4 py-2">Дата</th>
+                    <th class="px-4 py-2">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="tasks-tbody">
+                {% for task in tasks %}
+                <tr class="border-b">
+                    <td class="px-4 py-2 font-mono">{{ task.task_id }}</td>
+                    <td class="px-4 py-2">{{ task.get_type_display|default:task.type }}</td>
+                    <td class="px-4 py-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium {% if task.status == 'SUCCESS' %}bg-green-100 text-green-800{% elif task.status == 'FAILURE' %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            {{ task.status }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2">{{ task.created_at|date:"d.m.Y H:i" }}</td>
+                    <td class="px-4 py-2">
+                        {% if task.status == 'SUCCESS' and task.result_url %}
+                        <a href="{{ task.result_url }}" class="text-blue-600 hover:underline">Скачать</a>
+                        {% elif task.status == 'PENDING' or task.status == 'STARTED' %}
+                        <span class="text-gray-400">Ожидание...</span>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center py-4 text-gray-400">Нет задач</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+function renderTasks(tasks) {
+    const tbody = document.getElementById('tasks-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (tasks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-400">Нет задач</td></tr>';
+        return;
+    }
+    for (const task of tasks) {
+        let statusClass = 'bg-yellow-100 text-yellow-800';
+        if (task.status === 'SUCCESS') statusClass = 'bg-green-100 text-green-800';
+        if (task.status === 'FAILURE') statusClass = 'bg-red-100 text-red-800';
+        let action = '-';
+        if (task.status === 'SUCCESS' && task.result_url) {
+            action = `<a href="${task.result_url}" class="text-blue-600 hover:underline">Скачать</a>`;
+        } else if (task.status === 'PENDING' || task.status === 'STARTED') {
+            action = '<span class="text-gray-400">Ожидание...</span>';
+        }
+        tbody.innerHTML += `
+        <tr class="border-b">
+            <td class="px-4 py-2 font-mono">${task.task_id}</td>
+            <td class="px-4 py-2">${task.type}</td>
+            <td class="px-4 py-2"><span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusClass}">${task.status}</span></td>
+            <td class="px-4 py-2">${(new Date(task.created_at)).toLocaleString('ru-RU')}</td>
+            <td class="px-4 py-2">${action}</td>
+        </tr>`;
+    }
+}
+function pollTasks() {
+    fetch("/api/schedule/tasks/status/", {credentials: 'same-origin'})
+        .then(r => r.json())
+        .then(data => {
+            renderTasks(data.tasks);
+        });
+}
+setInterval(pollTasks, 5000);
+document.addEventListener('DOMContentLoaded', pollTasks);
+</script>
+{% endblock %} 

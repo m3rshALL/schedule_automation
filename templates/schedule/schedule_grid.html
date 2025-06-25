@@ -1,0 +1,30 @@
+<table class="min-w-full bg-white border rounded">
+  <thead>
+    <tr>
+      <th class="px-2 py-1 border-b">Время</th>
+      {% for day in days %}
+        <th class="px-2 py-1 border-b">{{ day }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for slot in timeslots %}
+      <tr>
+        <td class="px-2 py-1 border-b">{{ slot }}</td>
+        {% for day in days %}
+          <td class="px-2 py-1 border-b">
+            {% if schedule.day_slot_map|get_item:day|get_item:slot %}
+              {% for lesson in schedule.day_slot_map|get_item:day|get_item:slot %}
+                <div class="mb-1 p-1 bg-blue-100 rounded">
+                  {{ lesson.subject }}<br>
+                  {{ lesson.teacher }}<br>
+                  {{ lesson.room }}
+                </div>
+              {% endfor %}
+            {% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table> 
