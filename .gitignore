@@ -91,3 +91,6 @@ celerybeat.pid
 
 # mypy
 .mypy_cache/
+
+# Static files
+static/css/output.css
