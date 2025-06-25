@@ -52,24 +52,44 @@ class ScheduleExportView(APIView):
 
     def export_excel(self, schedules):
         wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = 'Schedule'
-        headers = [
-            'Группа', 'Дисциплина', 'Преподаватель', 'Аудитория', 'День', 'Время', 'Тип занятия'
-        ]
-        ws.append(headers)
-        for s in schedules:
-            ws.append([
-                s.course.student_group.name,
-                s.course.subject.name,
-                s.teacher.name,
-                s.room.name,
-                s.timeslot.day,
-                f"{s.timeslot.start_time:%H:%M}-{s.timeslot.end_time:%H:%M}",
-                s.course.lesson_type,
-            ])
-        for col in range(1, len(headers) + 1):
-            ws.column_dimensions[get_column_letter(col)].width = 18
+        wb.remove(wb.active)
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        day_map = {
+            'Monday': 'Понедельник',
+            'Tuesday': 'Вторник',
+            'Wednesday': 'Среда',
+            'Thursday': 'Четверг',
+            'Friday': 'Пятница',
+            'Saturday': 'Суббота',
+            'Sunday': 'Воскресенье',
+        }
+        for day in days:
+            ws = wb.create_sheet(title=day_map.get(day, day))
+            headers = [
+                'Время', 'Группа', 'Кол-во студентов', 'Дисциплина', 'Преподаватель', 'Email',
+                'Аудитория', 'Блок', 'Оборудование', 'Тип занятия'
+            ]
+            ws.append(headers)
+            for cell in ws[1]:
+                cell.font = openpyxl.styles.Font(bold=True)
+            day_schedules = [s for s in schedules if s.timeslot.day == day]
+            for s in sorted(day_schedules, key=lambda x: x.timeslot.start_time):
+                equipment = ', '.join([e.name for e in s.room.equipment.all()])
+                ws.append([
+                    f"{s.timeslot.start_time:%H:%M}-{s.timeslot.end_time:%H:%M}",
+                    s.course.student_group.name,
+                    s.course.student_group.size,
+                    s.course.subject.name,
+                    s.teacher.name,
+                    getattr(s.teacher, 'email', ''),
+                    s.room.name,
+                    getattr(s.room, 'block', ''),
+                    equipment,
+                    s.course.lesson_type,
+                ])
+            ws.auto_filter.ref = ws.dimensions
+            for col in range(1, len(headers) + 1):
+                ws.column_dimensions[get_column_letter(col)].width = 18
         output = io.BytesIO()
         wb.save(output)
         output.seek(0)
@@ -77,7 +97,7 @@ class ScheduleExportView(APIView):
             output.read(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = 'attachment; filename=schedule.xlsx'
+        response['Content-Disposition'] = 'attachment; filename=schedule_grouped_by_day.xlsx'
         return response
 
     def export_pdf(self, schedules):
