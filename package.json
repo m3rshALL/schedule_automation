@@ -1,0 +1,29 @@
+{
+  "name": "schedule_automation",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/m3rshALL/schedule_automation.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/m3rshALL/schedule_automation/issues"
+  },
+  "homepage": "https://github.com/m3rshALL/schedule_automation#readme",
+  "description": "",
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "flowbite": "^3.1.2",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.3"
+  }
+}
